@@ -21,7 +21,6 @@ from config import ds_config
 def train_val_worker(config):
     # TODO 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
     
     if config["allow_tf32"]:
         torch.backends.cuda.matmul.allow_tf32 = True
@@ -32,15 +31,13 @@ def train_val_worker(config):
     
     # TODO Test move_to_device in deepspeed
     move_to_device = not (config["deepspeed"] and len(config["ds_config"]))
-    if config["meta_data_split"]:
-        train_loader, val_loader, zero_loader = config["get_dataloader"](**config)
-        train_loader = train.torch.prepare_data_loader(train_loader, move_to_device=move_to_device)
-        val_loader = train.torch.prepare_data_loader(val_loader, move_to_device=move_to_device)
+    
+    train_loader, val_loader, zero_loader = config["get_dataloader"](**config)
+    train_loader = train.torch.prepare_data_loader(train_loader, move_to_device=move_to_device)
+    val_loader = train.torch.prepare_data_loader(val_loader, move_to_device=move_to_device)
+    
+    if zero_loader:
         zero_loader = train.torch.prepare_data_loader(zero_loader, move_to_device=move_to_device)
-    else:    
-        train_loader = config["get_dataloader"](**config)
-        train_loader = train.torch.prepare_data_loader(train_loader, move_to_device=move_to_device)
-        val_loader, zero_loader = None, None
         
     model = config["get_model"](**config)
     optimizer = optim.AdamW(model.parameters(), lr=config["lr"])
@@ -244,8 +241,8 @@ def tune_dist_ray(config):
             metric=config["tune_config"]["metric"],
             mode=config["tune_config"]["mode"],
             max_t=config["total_step"],
-            grace_period=3,
-            reduction_factor=3,
+            grace_period=5,
+            reduction_factor=4,
         )
         tuner = tune.Tuner(
             trainer,

@@ -15,10 +15,12 @@ def get_BCConfig():
         "ds_config":                   get_DSConfig(),
         "tune":                        True,
         "tune_config":                 {"metric": "zero_acc", "mode": "max"},
-        "data_path":                   "/home/ao/workspace/BC/data/metaworld.hdf5",
+        "data_path":                   "/home/ao/workspace/fs/real.hdf5",
+        # "zero_tasks":                  ['_ButtonPressTopdownWall_', '_CoffeeButton_', '_PlateSlide_', '_FaucetOpen_', '_PushWall_'],
+        "zero_tasks":                  ['Red_', '_Blue', '_Frying panLeft stove_', '_BowlLeftPlate_'],
         "seq_len":                     16,
+        "frame_skip":                  9,
         "use_language":                False,
-        "meta_data_split":             False,
         "storage_path":                "/home/ao/workspace/BC/outputs",
         "processer":                   "basic",
         "checkpoint":                  None,
@@ -57,9 +59,8 @@ def get_InverseConfig():
     config = get_BCConfig()
     config.update({
         "method":                      "inverse",
-        "processer":                   "canny",
+        "processer":                   "basic",
         "vision_model":                "resnet",  # [vit | resnet]
-        "meta_data_split":             True,
     })
     tune_config(config)
     return config

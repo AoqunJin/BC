@@ -12,7 +12,7 @@ def calculate_accuracy(preds, labels):
     return accuracy
 
 
-def get_model(num_actions = 4, action_bins = 3, **kwargs):
+def get_model(num_actions = 1, action_bins = 9, **kwargs):
     return InverseModel(num_actions, action_bins, **kwargs)
 
 

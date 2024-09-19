@@ -12,20 +12,21 @@ from tools import processer_basic, processer_canny, continuous_to_discrete
 class HDF5VideoDataset(Dataset):
     def __init__(self, data_path, processer=None, seq_len=16, 
                  required_tasks=None, avoid_tasks=None, 
-                 use_language=False, **kwargs):
+                 use_language=False, frame_skip=0, **kwargs):
         self.data_path = data_path
         self.processer = get_processer(processer)()
         self.processer_name = processer
         self.seq_len = seq_len
+        self.frame_skip = frame_skip
         self.use_language = use_language
         with h5py.File(self.data_path, 'r') as f:
             self.env_names = list(f.keys())
             self.demos = []
             for env_name in self.env_names:
                 for task_name in f[env_name].keys():
-                    if required_tasks and task_name not in required_tasks:
+                    if required_tasks and not any(s in f"_{task_name}_" for s in required_tasks):
                         continue
-                    elif avoid_tasks and task_name in avoid_tasks:
+                    elif avoid_tasks and any(s in f"_{task_name}_" for s in avoid_tasks):
                         continue
                     for timestamp in f[env_name][task_name].keys():
                         self.demos.append((env_name, task_name, timestamp))
@@ -39,15 +40,15 @@ class HDF5VideoDataset(Dataset):
             demo_group = f[f"{env_name}/{task_name}/{timestamp}"]
             
             max_end = len(demo_group['action'][:])
-            max_sta = max(0, max_end - self.seq_len)
+            max_sta = max(0, max_end - self.seq_len * (self.frame_skip + 1))
             
             rand_sta = random.randint(0, max_sta)
-            rand_end = min(max_end, rand_sta + self.seq_len)
+            rand_end = min(max_end, rand_sta + self.seq_len * (self.frame_skip + 1))
             
-            # observation = torch.from_numpy(demo_group['observation'][rand_sta:rand_end])
-            # reward = torch.from_numpy(demo_group['reward'][rand_sta:rand_end])
-            # done = torch.from_numpy(demo_group['done'][rand_sta:rand_end])
-            frame = demo_group['frames'][rand_sta:rand_end]
+            # observation = torch.from_numpy(demo_group['observation'][rand_sta:rand_end:self.frame_skip + 1])
+            # reward = torch.from_numpy(demo_group['reward'][rand_sta:rand_end:self.frame_skip + 1])
+            # done = torch.from_numpy(demo_group['done'][rand_sta:rand_end:self.frame_skip + 1])
+            frame = demo_group['frames'][rand_sta:rand_end:self.frame_skip + 1]
             if not self.use_language:
                 instruction = ""
             elif random.random() < 0.05:
@@ -56,10 +57,10 @@ class HDF5VideoDataset(Dataset):
                 instruction = demo_group['instruction'][()].decode()  # 读取字符串数据集
             
             # -1, 0, 1 => [3]
-            action = demo_group['action'][rand_sta:rand_end]
-            for i in range(len(action)):
-                action[i] = continuous_to_discrete(action[i], 3)
-            action = torch.from_numpy(action)
+            action = demo_group['action'][rand_sta:rand_end:self.frame_skip + 1]
+            # for i in range(len(action)):
+            #     action[i] = continuous_to_discrete(action[i], 3)W
+            action = torch.from_numpy(action).unsqueeze(-1)  # TODO for real data
             
             if self.processer:
                 if self.processer_name == "canny":
@@ -85,7 +86,7 @@ def collate_fn(batch):
     collated = {}
     for key in batch[0].keys():
         # action padding
-        if key == 'action': padding_value = 1
+        if key == 'action': padding_value = 0  # 0 | 1
         else: padding_value = 0
         # instruction padding
         if key == 'instruction': collated[key] = [item[key] for item in batch]
@@ -111,11 +112,10 @@ def get_dataloader(**config):
     )
 
     
-def get_dataloader_split(**config):
-    train_ds = get_dataset(**config, avoid_tasks=['ButtonPressTopdownWall', 'CoffeeButton', 'PlateSlide', 'FaucetOpen', 'PushWall'])
+def get_dataloader_split(**config):    
+    zero_tasks = config["zero_tasks"]
     
-    zero_ds = get_dataset(**config, required_tasks=['ButtonPressTopdownWall', 'CoffeeButton', 'PlateSlide', 'FaucetOpen', 'PushWall'])    
-    
+    train_ds = get_dataset(**config, avoid_tasks=zero_tasks)
     train_size = int(0.95 * len(train_ds))  # 95% for traing
     val_size = len(train_ds) - train_size  # 5% for validation
 
@@ -125,17 +125,24 @@ def get_dataloader_split(**config):
                           num_workers=config["num_workers"], collate_fn=collate_fn)
     val_dl = DataLoader(val_dataset, config["batch_size"], 
                         num_workers=config["num_workers"], collate_fn=collate_fn)
-    zero_dl = DataLoader(zero_ds, config["batch_size"], 
-                         num_workers=config["num_workers"], collate_fn=collate_fn)
+    zero_dl = None
+    
+    print("Train Samples:", len(train_dl))
+    print("Val Samples:", len(val_dl))
+    
+    if zero_tasks:
+        zero_ds = get_dataset(**config, required_tasks=zero_tasks)
+        zero_dl = DataLoader(zero_ds, config["batch_size"], 
+                            num_workers=config["num_workers"], collate_fn=collate_fn)
+        print("Zero Samples:", len(zero_dl))
     
     return train_dl, val_dl, zero_dl
     
 
 if __name__ == "__main__":
-    data_path = "/home/ao/workspace/BC/data/metaworld.hdf5"
-    dataset = HDF5VideoDataset(data_path, 'canny', seq_len=8)
-    dataloader = DataLoader(dataset, batch_size=8,
-                      num_workers=4, collate_fn=collate_fn)
+    data_path = "/home/ao/workspace/fs/real.hdf5"
+    dataset = HDF5VideoDataset(data_path, 'basic', seq_len=8, frame_skip=9)
+    dataloader = DataLoader(dataset, batch_size=8, num_workers=4, collate_fn=collate_fn)
     
     for batch in dataloader:
         print("Batch keys:", batch.keys())  # dict_keys(['observation', 'action', 'reward', 'done', 'frames', 'instruction'])
@@ -144,6 +151,6 @@ if __name__ == "__main__":
         print("Frames shape:", batch['frame'].shape)  # torch.Size([4, 227, 3, 224, 224])
         print("Instructions:", len(batch['instruction']))  # List (4)
         
-        save_image(batch['frame'][:, 0] * 255, 'test.png')
+        save_image(batch['frame'][0, :], 'test.png')
         break
     

@@ -2,7 +2,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from config import get_LCBCConfig, get_RT1Config, get_DiffusionConfig, get_InverseConfig
-from data import get_dataloader_split, get_dataloader
+from data import get_dataloader_split
 from ray_trainer import train_ray, tune_dist_ray
 
 
@@ -28,11 +28,7 @@ def main(train_model = 'lcbc'):
             get_model, forward_fn
         )
     
-    if config["meta_data_split"]:
-        config["get_dataloader"] = get_dataloader_split
-    else:
-        config["get_dataloader"] = get_dataloader
-        
+    config["get_dataloader"] = get_dataloader_split
     config["get_model"] = get_model
     config["forward_fn"] = forward_fn
     
