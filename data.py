@@ -58,8 +58,8 @@ class HDF5VideoDataset(Dataset):
             
             # -1, 0, 1 => [3]
             action = demo_group['action'][rand_sta:rand_end:self.frame_skip + 1]
-            # for i in range(len(action)):
-            #     action[i] = continuous_to_discrete(action[i], 3)W
+            for i in range(len(action)):
+                action[i] = continuous_to_discrete(action[i], 3)
             action = torch.from_numpy(action).unsqueeze(-1)  # TODO for real data
             
             if self.processer:
