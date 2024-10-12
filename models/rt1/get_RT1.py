@@ -15,7 +15,7 @@ def calculate_accuracy(preds, labels):
     return accuracy
 
 
-def get_model(num_actions = 4, action_bins = 3, **kwargs):
+def get_model(num_actions = 4, action_bins = 256, **kwargs):
     vit = MaxViT(
         num_classes = 1000,
         dim_conv_stem = 64,

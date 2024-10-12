@@ -38,5 +38,5 @@ def main(train_model = 'lcbc'):
         train_ray(config=config)
     
 if __name__ == '__main__':
-    main('inverse')
+    main('rt1')
     

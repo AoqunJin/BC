@@ -59,8 +59,8 @@ class HDF5VideoDataset(Dataset):
             # -1, 0, 1 => [3]
             action = demo_group['action'][rand_sta:rand_end:self.frame_skip + 1]
             for i in range(len(action)):
-                action[i] = continuous_to_discrete(action[i], 3)
-            action = torch.from_numpy(action).unsqueeze(-1)  # TODO for real data
+                action[i] = continuous_to_discrete(action[i])
+            action = torch.from_numpy(action)  # .unsqueeze(-1)  # TODO for real data
             
             if self.processer:
                 if self.processer_name == "canny":
@@ -86,7 +86,7 @@ def collate_fn(batch):
     collated = {}
     for key in batch[0].keys():
         # action padding
-        if key == 'action': padding_value = 0  # 0 | 1
+        if key == 'action': padding_value = 127  # (for 256)  # 0 | 1
         else: padding_value = 0
         # instruction padding
         if key == 'instruction': collated[key] = [item[key] for item in batch]

@@ -5,21 +5,35 @@ def get_BCConfig():
         "num_workers":                 16,
         "lr":                          2e-5,
         "total_epoch":                 1000,
-        "total_step":                  500000,
+        "total_step":                  100000,
         "steps_per_eval":              5000,
         "num_to_keep":                 1,
-        "checkpoint_score_attribute":  "zero_acc",
+        "checkpoint_score_attribute":  "val_acc",
         "checkpoint_score_order":      "max",
         "allow_tf32":                  False,
         "deepspeed":                   True,
-        "ds_config":                   get_DSConfig(),
+        "ds_config":                   get_DSZeRO2Config(),
         "tune":                        True,
-        "tune_config":                 {"metric": "zero_acc", "mode": "max"},
-        "data_path":                   "/home/ao/workspace/BC/data/metaworld.hdf5",
-        "zero_tasks":                  ['_ButtonPressTopdownWall_', '_CoffeeButton_', '_PlateSlide_', '_FaucetOpen_', '_PushWall_'],
+        "tune_config":                 {"metric": "val_acc", "mode": "max"},
+        "data_path":                   "/home/ao/workspace/fs/diffusers/trajectories_chunk_0.hdf5",
+        "zero_tasks":                  [
+            '_button-press-topdown-wall-v2-goal-observable_', 
+            '_button-press-v2-goal-observable_', 
+            '_reach-wall-v2-goal-observable_', 
+            '_push-v2-goal-observable_', 
+            '_pick-place-wall-v2-goal-observable_',
+            '_disassemble-v2-goal-observable_',
+            '_door-open-v2-goal-observable_',
+            '_door-unlock-v2-goal-observable_',
+            '_drawer-close-v2-goal-observable_',
+            '_faucet-close-v2-goal-observable_',
+            '_plate-slide-back-v2-goal-observable_',
+            '_plate-slide-side-v2-goal-observable_', 
+            '_window-close-v2-goal-observable_'
+        ],
         # "data_path":                   "/home/ao/workspace/fs/real.hdf5",
         # "zero_tasks":                  ['Red_', '_Blue', '_Frying panLeft stove_', '_BowlLeftPlate_'],
-        "seq_len":                     16,
+        "seq_len":                     12,
         "frame_skip":                  9,
         "use_language":                False,
         "storage_path":                "/home/ao/workspace/BC/outputs",
@@ -74,7 +88,7 @@ def get_DSConfig():
         "gradient_accumulation_steps": 1,
         "train_micro_batch_size_per_gpu": 16,        
         "gradient_clipping": 1.0,
-        "steps_per_print": 1000
+        "steps_per_print": 2000000
     }
     return deepspeed_config
 
@@ -95,7 +109,7 @@ def get_DSZeRO2Config():
         "gradient_accumulation_steps": 1,
         "train_micro_batch_size_per_gpu": 16,        
         "gradient_clipping": 1.0,
-        "steps_per_print": 1000
+        "steps_per_print": 2000000
     }
     return deepspeed_config
 
@@ -110,7 +124,9 @@ def tune_config(config):
     if config["tune"]:
         from ray import tune
         config["lr"] = tune.loguniform(1e-5, 2e-4)
-        config["batch_size"] = tune.choice([4, 8, 16])
-        config["seq_len"] = tune.choice([8, 12, 16])
-        config["vision_model"] = tune.choice(["vit", "resnet"])
+        # config["batch_size"] = tune.choice([4, 8, 16])
+        config["batch_size"] = tune.choice([1, 2])
+        # config["seq_len"] = tune.choice([8, 12, 16])
+        config["seq_len"] = tune.choice([8, 12])
+        # config["vision_model"] = tune.choice(["vit", "resnet"])
     
