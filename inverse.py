@@ -16,7 +16,7 @@ def pad_tensor(tensor, window_size):
     pad_size = window_size - 1
     return torch.nn.functional.pad(tensor, (0, 0, 0, 0, 0, 0, 0, pad_size))
 
-def process_frames(frames, model, processor, window_size=16, step_size=1):
+def process_frames(frames, model, processor, window_size=12, step_size=1):
     # 首先对所有帧应用processor
     processed_frames = torch.stack([processor(f, 2) for f in frames], dim=0).cuda()
     # 然后进行填充
@@ -52,8 +52,8 @@ def process_hdf5(file_path, model, processor):
     
 # 使用示例
 if __name__ == "__main__":
-    file_path = "/home/casia/workspace/zero.hdf5"
+    file_path = "/home/ao/workspace/fs/diffusers/trajectories_chunk_2.hdf5"
     processer = processer_canny()
     model = get_model().cuda()  # 这里应该是你的模型实例
-    load_pytorch_model(model, "/home/casia/workspace/BC/output/inverse_results/TorchTrainer_29cb0_00000_0_2024-09-11_20-41-27/checkpoint_000042/model.pt")
+    load_pytorch_model(model, "/home/ao/workspace/BC/outputs/inverse_results/TorchTrainer_e3847_00002_2_lr=0.0000_2024-10-16_03-42-27/checkpoint_000011/model.pt")
     process_hdf5(file_path, model, processer)

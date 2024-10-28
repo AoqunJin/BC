@@ -249,7 +249,7 @@ def tune_dist_ray(config):
             param_space={"train_loop_config": config},
             tune_config=tune.TuneConfig(
                 scheduler=scheduler,
-                num_samples=30,
+                num_samples=10,
                 max_concurrent_trials=2
             ),
         )

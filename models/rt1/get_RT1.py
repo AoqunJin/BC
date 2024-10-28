@@ -53,7 +53,7 @@ def forward_fn(model, **batch):
     return {"loss": loss, "acc": acc}
 
 
-def video_inference_decorator(max_frames=32):
+def video_inference_decorator(max_frames=12):
     frame_buffer = deque(maxlen=max_frames)
     
     def decorator(func):
@@ -77,12 +77,12 @@ def video_inference_decorator(max_frames=32):
     return decorator
 
 
-@video_inference_decorator(max_frames=8)
+@video_inference_decorator(max_frames=12)
 def inference(model, video, instructions, **kwargs):
     model.eval()
     with torch.no_grad():
         eval_logits = model(video, instructions, cond_scale=3.)[-1, -1]  # classifier free guidance with conditional scale of 3
-    return (torch.argmax(eval_logits, dim=-1) - 1).squeeze().cpu().detach().numpy()
+    return (torch.argmax(eval_logits, dim=-1)).squeeze().cpu().detach().numpy()
 
 
 if __name__ == '__main__':

@@ -12,7 +12,7 @@ def calculate_accuracy(preds, labels):
     return accuracy
 
 
-def get_model(num_actions = 4, action_bins = 3, **kwargs):
+def get_model(num_actions = 4, action_bins = 256, **kwargs):
     return InverseModel(num_actions, action_bins, **kwargs)
 
 
@@ -34,7 +34,7 @@ def inference(model, frame, instruction, **kwargs):
     model.eval()
     with torch.no_grad():
         eval_logits = model(instruction, frame.unsqueeze(0))
-    return (torch.argmax(eval_logits, dim=-1) - 1).squeeze().cpu().detach().numpy()
+    return (torch.argmax(eval_logits, dim=-1)).squeeze().cpu().detach().numpy()
 
 
 if __name__ == "__main__":

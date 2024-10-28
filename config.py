@@ -15,26 +15,27 @@ def get_BCConfig():
         "ds_config":                   get_DSZeRO2Config(),
         "tune":                        True,
         "tune_config":                 {"metric": "val_acc", "mode": "max"},
-        "data_path":                   "/home/ao/workspace/fs/diffusers/trajectories_chunk_0.hdf5",
-        "zero_tasks":                  [
-            '_button-press-topdown-wall-v2-goal-observable_', 
-            '_button-press-v2-goal-observable_', 
-            '_reach-wall-v2-goal-observable_', 
-            '_push-v2-goal-observable_', 
-            '_pick-place-wall-v2-goal-observable_',
-            '_disassemble-v2-goal-observable_',
-            '_door-open-v2-goal-observable_',
-            '_door-unlock-v2-goal-observable_',
-            '_drawer-close-v2-goal-observable_',
-            '_faucet-close-v2-goal-observable_',
-            '_plate-slide-back-v2-goal-observable_',
-            '_plate-slide-side-v2-goal-observable_', 
-            '_window-close-v2-goal-observable_'
-        ],
+        "data_path":                   "/home/ao/workspace/fs/diffusers/trajectories_chunk_2.hdf5",
+        "zero_tasks":                  None,
+        # "zero_tasks":                  [
+        #     '_button-press-topdown-wall-v2-goal-observable_', 
+        #     '_button-press-v2-goal-observable_', 
+        #     '_reach-wall-v2-goal-observable_', 
+        #     '_push-v2-goal-observable_', 
+        #     '_pick-place-wall-v2-goal-observable_',
+        #     '_disassemble-v2-goal-observable_',
+        #     '_door-open-v2-goal-observable_',
+        #     '_door-unlock-v2-goal-observable_',
+        #     '_drawer-close-v2-goal-observable_',
+        #     '_faucet-close-v2-goal-observable_',
+        #     '_plate-slide-back-v2-goal-observable_',
+        #     '_plate-slide-side-v2-goal-observable_', 
+        #     '_window-close-v2-goal-observable_'
+        # ],
         # "data_path":                   "/home/ao/workspace/fs/real.hdf5",
         # "zero_tasks":                  ['Red_', '_Blue', '_Frying panLeft stove_', '_BowlLeftPlate_'],
         "seq_len":                     12,
-        "frame_skip":                  9,
+        "frame_skip":                  0,
         "use_language":                False,
         "storage_path":                "/home/ao/workspace/BC/outputs",
         "processer":                   "basic",
@@ -55,7 +56,8 @@ def get_LCBCConfig():
 def get_RT1Config():
     config = get_BCConfig()
     config.update({
-        "method":                      "rt1",    
+        "method":                      "rt1",
+        "batch_size":                  2,
     })
     tune_config(config)
     return config
@@ -75,7 +77,10 @@ def get_InverseConfig():
     config.update({
         "method":                      "inverse",
         "processer":                   "canny",
-        "vision_model":                "resnet",  # [vit | resnet]
+        "vision_model":                "vit",  # [vit | resnet]
+        "batch_size":                  4,
+        "seq_len":                     12,
+        "num_workers":                 32,
     })
     tune_config(config)
     return config
@@ -125,8 +130,4 @@ def tune_config(config):
         from ray import tune
         config["lr"] = tune.loguniform(1e-5, 2e-4)
         # config["batch_size"] = tune.choice([4, 8, 16])
-        config["batch_size"] = tune.choice([1, 2])
         # config["seq_len"] = tune.choice([8, 12, 16])
-        config["seq_len"] = tune.choice([8, 12])
-        # config["vision_model"] = tune.choice(["vit", "resnet"])
-    

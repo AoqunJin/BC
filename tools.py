@@ -127,3 +127,42 @@ def continuous_to_discrete(actions, num_bins=256):
     numpy.ndarray: Array of discretized actions between 0 and 255.
     """
     return np.array([__discretize_action(a, num_bins) for a in actions])
+
+
+@njit
+def __discrete_to_continuous(discrete_action, num_bins=256):
+    """
+    Convert a discretized action (integer) back to a continuous action in the range [-1, 1].
+    
+    Args:
+    discrete_action (int): Discretized action as an integer between 0 and (num_bins - 1).
+    num_bins (int): Number of discrete bins (default is 256).
+    
+    Returns:
+    float: Continuous action in the range [-1, 1].
+    """
+    # Ensure the action is within the valid discrete range
+    if discrete_action < 0: discrete_action = 0
+    elif discrete_action >= num_bins: discrete_action = num_bins - 1
+    
+    # Map from [0, num_bins - 1] to [0, 1]
+    normalized_action = discrete_action / (num_bins - 1)
+    
+    # Map from [0, 1] to [-1, 1]
+    continuous_action = normalized_action * 2 - 1
+    
+    return continuous_action
+
+
+@njit
+def discrete_to_continuous(discrete_actions, num_bins=256):
+    """
+    Convert an array of discretized actions to continuous actions.
+    
+    Args:
+    discrete_actions (numpy.ndarray): Array of discretized actions between 0 and (num_bins - 1).
+    
+    Returns:
+    numpy.ndarray: Array of continuous actions in the range [-1, 1].
+    """
+    return np.array([__discrete_to_continuous(a, num_bins) for a in discrete_actions])
