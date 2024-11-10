@@ -17,7 +17,7 @@ def data_map(data, device):
     
 
 def processer_basic():
-    # 对 RGB 图像进行处理，例如调整大小、标准化等
+    # Perform processing on RGB images, such as resizing, normalization, etc.
     transform = T.Compose([
         T.ToPILImage(),
         T.Resize((224, 224)),
@@ -34,40 +34,40 @@ def processer_canny():
                             point_noise_add: float = 0.02, point_noise_remove: float = 0.1, 
                             line_noise_add: int = 10, line_noise_remove: int = 10):
         if fill == -1: fill = random.randint(0, 3)
-        # 转换为灰度图
+        # Convert to grayscale
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # Canny边缘检测
+        # Canny edge detection
         edges = cv2.Canny(gray, 150, 200)
 
-        # 去除离散值
+        # Remove discrete values
         # noise_add = np.zeros_like(edges)
         noise_remove_mask = edges > 150
         edges[noise_remove_mask] = 225
         edges[~noise_remove_mask] = 0
         
-        # 添加随机点噪声
+        # Add random noise
         noise_add = np.random.random(edges.shape)
         noise_add_mask = noise_add < point_noise_add
         edges[noise_add_mask] = 255
 
-        # 添加随机线噪声
+        # Add random line noise
         for _ in range(line_noise_add):
             pt1 = (np.random.randint(0, edges.shape[1]), np.random.randint(0, edges.shape[0]))
             pt2 = (np.random.randint(0, edges.shape[1]), np.random.randint(0, edges.shape[0]))
             cv2.line(edges, pt1, pt2, 255, 1)
         
-        # 移除随机点噪声
+        # Remove random point noise
         noise_remove = np.random.random(edges.shape)
         noise_remove_mask = noise_remove < point_noise_remove
         edges[noise_remove_mask] = 0
 
-        # 移除随机线段
+        # Remove random line segments
         for _ in range(line_noise_remove):
             pt1 = (np.random.randint(0, edges.shape[1]), np.random.randint(0, edges.shape[0]))
             pt2 = (np.random.randint(0, edges.shape[1]), np.random.randint(0, edges.shape[0]))
-            cv2.line(edges, pt1, pt2, 0, 5)  # 使用较粗的线条来确保移除效果
+            cv2.line(edges, pt1, pt2, 0, 5)  # Use thicker lines to ensure removal
 
-        # # 添加边缘填充
+        # Add edge padding
         if fill:
             kernel = np.ones((fill, fill), np.uint8)
             edges = cv2.dilate(edges, kernel, iterations=1)
@@ -80,11 +80,11 @@ def processer_canny():
 
     @njit
     def __add_noise(obs):
-        obs = obs.astype(np.float64)  # 转换为浮点数以防止溢出
+        obs = obs.astype(np.float64)  # Convert to floating point to prevent overflow
         for i in range(2):
             noise = np.random.normal(0, 50, obs.shape)
             obs += noise
-        obs = np.clip(obs, 0, 255).astype(np.uint8)  # 裁剪到 [0, 255] 范围并转回 uint8
+        obs = np.clip(obs, 0, 255).astype(np.uint8)  # Clip to [0, 255] range and convert back to uint8
         return obs
     
     return process_frame_canny

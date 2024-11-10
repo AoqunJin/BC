@@ -58,9 +58,11 @@ class HDF5VideoDataset(Dataset):
             
             # -1, 0, 1 => [3]
             action = demo_group['action'][rand_sta:rand_end:self.frame_skip + 1]
+            # Add on data w/o gen
             # for i in range(len(action)):
             #     action[i] = continuous_to_discrete(action[i])
-            action = torch.from_numpy(action)  # .unsqueeze(-1)  # TODO for real data
+            # TODO for real data
+            action = torch.from_numpy(action)  # .unsqueeze(-1) 
             
             if self.processer:
                 if self.processer_name == "canny":
@@ -140,7 +142,7 @@ def get_dataloader_split(**config):
     
 
 if __name__ == "__main__":
-    data_path = "/home/ao/workspace/fs/real.hdf5"
+    data_path = "/path/to/hdf5"
     dataset = HDF5VideoDataset(data_path, 'basic', seq_len=8, frame_skip=9)
     dataloader = DataLoader(dataset, batch_size=8, num_workers=4, collate_fn=collate_fn)
     

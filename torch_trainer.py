@@ -7,18 +7,17 @@ warnings.filterwarnings("ignore")
 import torch
 import torch.optim as optim
 from deepspeed.runtime.lr_schedules import WarmupLR
-import ray
-from ray import train, tune
-from ray.train import Checkpoint, RunConfig, FailureConfig, ScalingConfig
-from ray.train.torch import TorchTrainer
-
-from ray.tune.schedulers import ASHAScheduler
 import accelerate
+from torch.utils.tensorboard import SummaryWriter
+
 
 from tools import data_map
 from config import ds_config
 
 def train_val_worker(config):
+    temp_checkpoint_dir = os.path.join(config["storage_path"], f"{config['method']}_results")
+    writer = SummaryWriter(log_dir=temp_checkpoint_dir)
+
     # TODO 
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     
@@ -28,22 +27,18 @@ def train_val_worker(config):
     
     if config["deepspeed"] and len(config["ds_config"]):
         ds_config(config)
+
     
     # TODO Test move_to_device in deepspeed
     move_to_device = not (config["deepspeed"] and len(config["ds_config"]))
     
     train_loader, val_loader, zero_loader = config["get_dataloader"](**config)
-    train_loader = train.torch.prepare_data_loader(train_loader, move_to_device=move_to_device)
-    val_loader = train.torch.prepare_data_loader(val_loader, move_to_device=move_to_device)
-    
-    if zero_loader:
-        zero_loader = train.torch.prepare_data_loader(zero_loader, move_to_device=move_to_device)
         
     model = config["get_model"](**config)
     optimizer = optim.AdamW(model.parameters(), lr=config["lr"])
     lr_scheduler = WarmupLR(optimizer, warmup_max_lr=config["lr"])
     forward_fn = config["forward_fn"]
-  
+
     if config["deepspeed"] and len(config["ds_config"]):
         import deepspeed
         from deepspeed.accelerator import get_accelerator
@@ -57,8 +52,8 @@ def train_val_worker(config):
         )
         device = get_accelerator().device_name(model.local_rank)
     else:
-        model = train.torch.prepare_model(model)
         device = None
+        raise ValueError("No support w/o deepspeed now")
 
     target_dtype = torch.float32
     if config["deepspeed"] and len(config["ds_config"]):
@@ -67,7 +62,7 @@ def train_val_worker(config):
 
     # Recover
     start_epoch, total_step, total_loss, total_acc, step = 0, 0, 0, 0, 0
-    checkpoint: Optional[Checkpoint] = train.get_checkpoint()
+    checkpoint = config["checkpoint"]
     if checkpoint:
         with checkpoint.as_directory() as checkpoint_dir:
             if config["deepspeed"] and len(config["ds_config"]):
@@ -135,21 +130,20 @@ def train_val_worker(config):
                     zero_metrics = validation(zero_loader, target_dtype, device, forward_fn, model, epoch, type="zero")
                     metrics.update(zero_metrics)
  
-                with tempfile.TemporaryDirectory(dir="/root/autodl-tmp/fs/tmp") as temp_checkpoint_dir:
-                    client_state_dict = {"step": total_step, "epoch": epoch}
-                    torch.save(client_state_dict, os.path.join(temp_checkpoint_dir, f"info.pt"))
-                    
-                    if config["deepspeed"] and len(config["ds_config"]):
-                        model.save_checkpoint(os.path.join(temp_checkpoint_dir))
-                    else:
-                        rank = train.get_context().get_world_rank()
-                        model_to_save = model.module if hasattr(model, 'module') else model
-                        torch.save(model_to_save.state_dict(), os.path.join(temp_checkpoint_dir, f"model.pt"))
-                        torch.save(optimizer.state_dict(), os.path.join(temp_checkpoint_dir, f"optimizer.pt"))
-                        torch.save(lr_scheduler.state_dict(), os.path.join(temp_checkpoint_dir, f"lr_scheduler.pt"))
+                
+                client_state_dict = {"step": total_step, "epoch": epoch}
+                torch.save(client_state_dict, os.path.join(temp_checkpoint_dir, f"info.pt"))
+                
+                if config["deepspeed"] and len(config["ds_config"]):
+                    model.save_checkpoint(os.path.join(temp_checkpoint_dir))
+                else:
+                    ...
 
-                    torch.distributed.barrier()
-                    train.report(metrics, checkpoint=train.Checkpoint.from_directory(temp_checkpoint_dir),)
+                torch.distributed.barrier()
+                # train.report(metrics, checkpoint=train.Checkpoint.from_directory(temp_checkpoint_dir),)
+                for key, value in metrics.items():
+                    writer.add_scalar(key, value, epoch)
+
                 step, total_loss, total_acc = 0, 0, 0
             if total_step >= config["total_step"]:
                 break
@@ -172,87 +166,5 @@ def validation(val_loader, target_dtype, device, forward_fn, model, epoch, type)
     return metrics
     
 
-def train_ray(config):
-    context = ray.init(address='auto')
-    print(context.dashboard_url)
-    
-    if config["restore"]:
-        experiment_path = os.path.join(config["storage_path"], f"{config['method']}_results")
-        if TorchTrainer.can_restore(experiment_path):
-            trainer = TorchTrainer.restore(experiment_path)
-    else:
-        checkpoint = None
-        if config["checkpoint"]: 
-            checkpoint = Checkpoint(config["checkpoint"])
-            
-        trainer = TorchTrainer(
-            train_val_worker,
-            train_loop_config=config,
-            scaling_config=ScalingConfig(
-                num_workers=1, use_gpu=True,
-                resources_per_worker={"GPU": 1}
-            ),
-            run_config=RunConfig(
-                name=f"{config['method']}_results", 
-                storage_path=os.path.expanduser(config["storage_path"]),
-                failure_config=FailureConfig(max_failures=10),  # -1 will always
-                stop=None,  # {"training_iteration": 10, "mean_accuracy": 0.8}
-                checkpoint_config=train.CheckpointConfig(
-                    num_to_keep=config["num_to_keep"],
-                    checkpoint_score_attribute=config["checkpoint_score_attribute"],
-                    checkpoint_score_order=config["checkpoint_score_order"],
-                ),
-            ),
-            resume_from_checkpoint=checkpoint,
-        )
-    result = trainer.fit()
-
-
-def tune_dist_ray(config):
-    # context = ray.init(address='auto')
-    # print(context.dashboard_url)
-    
-    if config["restore"]:
-        experiment_path = os.path.join(config["storage_path"], f"{config['method']}_results")
-        if tune.Tuner.can_restore(experiment_path):
-            tuner = tune.Tuner.restore(experiment_path, trainable=train_val_worker, resume_errored=True)
-    else:
-        trainer = TorchTrainer(
-            train_val_worker,
-            scaling_config=ScalingConfig(
-                num_workers=1, use_gpu=True,
-                resources_per_worker={"GPU": 1}
-            ),
-            run_config=RunConfig(
-                name=f"{config['method']}_results", 
-                storage_path=os.path.expanduser(config["storage_path"]),
-                failure_config=FailureConfig(max_failures=10),  # -1 will always
-                stop=None,  # {"training_iteration": 10, "mean_accuracy": 0.8}
-                checkpoint_config=train.CheckpointConfig(
-                    num_to_keep=config["num_to_keep"],
-                    checkpoint_score_attribute=config["checkpoint_score_attribute"],
-                    checkpoint_score_order=config["checkpoint_score_order"],
-                ),
-            ),
-        )
-        
-        scheduler = ASHAScheduler(
-            time_attr='step',
-            metric=config["tune_config"]["metric"],
-            mode=config["tune_config"]["mode"],
-            max_t=config["total_step"],
-            grace_period=5,
-            reduction_factor=4,
-        )
-        tuner = tune.Tuner(
-            trainer,
-            param_space={"train_loop_config": config},
-            tune_config=tune.TuneConfig(
-                scheduler=scheduler,
-                num_samples=12,
-                max_concurrent_trials=4
-            ),
-        )
-    
-    results = tuner.fit()
-    
+def train_torch(config):
+    train_val_worker(config)

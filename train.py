@@ -4,6 +4,7 @@ warnings.filterwarnings("ignore")
 from config import get_LCBCConfig, get_RT1Config, get_DiffusionConfig, get_InverseConfig
 from data import get_dataloader_split
 from ray_trainer import train_ray, tune_dist_ray
+from torch_trainer import train_torch
 
 
 def main(train_model = 'lcbc'):
@@ -32,11 +33,13 @@ def main(train_model = 'lcbc'):
     config["get_model"] = get_model
     config["forward_fn"] = forward_fn
     
-    if config["tune"]:
-        tune_dist_ray(config=config)
-    else:
-        train_ray(config=config)
+    # if config["tune"]:
+    #     tune_dist_ray(config=config)
+    # else:
+    #     train_ray(config=config)
+
+    train_torch(config=config)
     
 if __name__ == '__main__':
-    main('rt1')
+    main('lcbc')
     

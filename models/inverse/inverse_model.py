@@ -47,8 +47,8 @@ class InverseModel(nn.Module):
             self.vision_model = CLIPVisionModel.from_pretrained("openai/clip-vit-base-patch32")
         
         self.use_language = use_language  # Only fp32 bf16 TF32
-        self.tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-small")
-        self.text_model = T5EncoderModel.from_pretrained("google/t5-v1_1-small")
+        self.tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-base")
+        self.text_model = T5EncoderModel.from_pretrained("google/t5-v1_1-base")
 
         self.fusion_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
         self.fusion_encoder = nn.TransformerEncoder(self.fusion_layer, num_layers=6)
@@ -83,7 +83,7 @@ class InverseModel(nn.Module):
             text_features = text_outputs.last_hidden_state
             
             # 在最后一维的末尾填充256个单位，前面0个，填充值为0 | 512->768
-            text_features = F.pad(text_features, pad=(0, 256), mode='constant', value=0)
+            text_features = F.pad(text_features, pad=(0, 512), mode='constant', value=0)
 
             # Combine features
             features = torch.cat([text_features, features], dim=1)

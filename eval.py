@@ -12,14 +12,14 @@ import os
 import json
 from tools import processer_basic, processer_canny, discrete_to_continuous
 import os
-os.environ["MUJOCO_GL"] = "egl"
+
 
 DEFAULT_CAMERA_CONFIG = {
     "distance": 1.25,
     "azimuth": 145,  # rotates the camera around the up vector
     "elevation": -25.0,  # rotates the camera around the right vector
     "lookat": np.array([0.0, 0.65, 0.0]),
-    }
+}
 
 DEFAULT_SIZE=512
 
@@ -53,33 +53,34 @@ def setup_metaworld_env(task_name:str, seed:int):
     return env
 
 env_names = {
-    # 'button-press-topdown-v2-goal-observable': "",     
-    # 'button-press-wall-v2-goal-observable': "", 
-    # 'reach-v2-goal-observable': "", 
-    # 'push-wall-v2-goal-observable': "",
-    # 'pick-place-v2-goal-observable': "",
-    # 'assembly-v2-goal-observable': "", 
-    # 'door-close-v2-goal-observable': "", 
-    # 'door-lock-v2-goal-observable': "", 
-    # 'drawer-open-v2-goal-observable': "",
-    # 'faucet-open-v2-goal-observable': "", 
-    # 'plate-slide-v2-goal-observable': "", 
-    # 'plate-slide-back-side-v2-goal-observable': "",
-    # 'window-open-v2-goal-observable': "", 
-    # # Zero-Shot
-    # 'button-press-topdown-wall-v2-goal-observable': "", 
-    # 'button-press-v2-goal-observable': "", 
+    # A
+    'button-press-topdown-v2-goal-observable': "",     
+    'button-press-wall-v2-goal-observable': "", 
+    'reach-v2-goal-observable': "", 
+    'push-wall-v2-goal-observable': "",
+    'pick-place-v2-goal-observable': "",
+    'assembly-v2-goal-observable': "", 
+    'door-close-v2-goal-observable': "", 
+    'door-lock-v2-goal-observable': "", 
+    'drawer-open-v2-goal-observable': "",
+    'faucet-open-v2-goal-observable': "", 
+    'plate-slide-v2-goal-observable': "", 
+    'plate-slide-back-side-v2-goal-observable': "",
+    'window-open-v2-goal-observable': "", 
+    # B
+    'button-press-topdown-wall-v2-goal-observable': "", 
+    'button-press-v2-goal-observable': "", 
     'reach-wall-v2-goal-observable': "", 
-    # 'push-v2-goal-observable': "", 
-    # 'pick-place-wall-v2-goal-observable': "",
-    # 'disassemble-v2-goal-observable': "",
-    # 'door-open-v2-goal-observable': "",
-    # 'door-unlock-v2-goal-observable': "",
-    # 'drawer-close-v2-goal-observable': "",
-    # 'faucet-close-v2-goal-observable': "",
-    # 'plate-slide-back-v2-goal-observable': "",
-    # 'plate-slide-side-v2-goal-observable': "", 
-    # 'window-close-v2-goal-observable': ""
+    'push-v2-goal-observable': "", 
+    'pick-place-wall-v2-goal-observable': "",
+    'disassemble-v2-goal-observable': "",
+    'door-open-v2-goal-observable': "",
+    'door-unlock-v2-goal-observable': "",
+    'drawer-close-v2-goal-observable': "",
+    'faucet-close-v2-goal-observable': "",
+    'plate-slide-back-v2-goal-observable': "",
+    'plate-slide-side-v2-goal-observable': "", 
+    'window-close-v2-goal-observable': ""
 }
 
 
@@ -107,7 +108,7 @@ def val(model, inference, device, processor, write_video=False,
                 obs_rgb = copy.deepcopy(env.render())
                 if write_video: video_list.append(obs_rgb)
                 # print("Obs shape:", obs_rgb.shape)
-                obs_rgb = processor(obs_rgb).to(device).to(torch.half)
+                obs_rgb = processor(obs_rgb).to(device).to(torch.bfloat16)
             
                 with torch.no_grad():
                     clear_buffer = (j == 0)
@@ -132,8 +133,8 @@ def val(model, inference, device, processor, write_video=False,
     # 保存为txt文件
     with open(os.path.join(results_path, "s_acc.txt"), 'w') as f:
         json.dump(s_acc, f, indent=4)
-    # with open(os.path.join(results_path, "t_reward.txt"), 'w') as f:
-    #     json.dump(t_reward, f, indent=4)
+    with open(os.path.join(results_path, "t_reward.txt"), 'w') as f:
+        json.dump(t_reward, f, indent=4)
 
     return s_acc, t_reward
 
@@ -166,20 +167,21 @@ def main(val_model = 'lcbc', checkpoint = ''):
     processer = processer_basic()
     model = get_model()
     load_pytorch_model(model, checkpoint)
-    model.to(torch.half)
+    model.to(torch.bfloat16)
     
     if hasattr(model, "on_inference_start"):
         model.on_inference_start()
         
     device = torch.device("cuda")
-    val(model, inference, device=device, processor=processer, 
-        write_video=True, video_path=f"./validation-gen/{val_model}/video", results_path=f"./validation/{val_model}/results", test_n=20)
+    val(model, inference, device=device, processor=processer, write_video=True, 
+        video_path=os.path.join(output_path, f"{val_model}/video"), 
+        results_path=os.path.join(output_path, f"{val_model}/results"), 
+        test_n=20)
     
     
 if __name__ == "__main__":
-    main("rt1", "/home/ao/workspace/BC/outputs/rt1_results/TorchTrainer_c0984_00001_1_lr=0.0001_2024-10-17_01-04-49/checkpoint_000017/model.pt")
     
-    # /home/ao/workspace/BC/outputs/rt1_results_base/TorchTrainer_776ff_00000_0_batch_size=2,lr=0.0001,seq_len=12_2024-10-12_02-48-55/checkpoint_000006/model.pt
-    # /home/ao/workspace/BC/outputs/rt1_results/TorchTrainer_c0984_00001_1_lr=0.0001_2024-10-17_01-04-49/checkpoint_000017/model.pt
+    output_path = "/path/to/output"
+    main("lcbc", "/path/to/pytorch_model.bin")
     
-    # CUDA_VISIBLE_DEVICES="0" MUJOCO_GL="egl" python eval.py
+    # CUDA_VISIBLE_DEVICES="0" MUJOCO_GL="osmesa" python eval.py

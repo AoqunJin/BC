@@ -2,7 +2,7 @@ import h5py
 import torch
 import numpy as np
 from models.inverse import inference, get_model
-from tools import processer_canny
+from tools import processer_canny, discrete_to_continuous
 
 def load_pytorch_model(model, filename):
     model.load_state_dict(torch.load(filename))
@@ -17,14 +17,12 @@ def pad_tensor(tensor, window_size):
     return torch.nn.functional.pad(tensor, (0, 0, 0, 0, 0, 0, 0, pad_size))
 
 def process_frames(frames, model, processor, window_size=12, step_size=1):
-    # 首先对所有帧应用processor
     processed_frames = torch.stack([processor(f, 2) for f in frames], dim=0).cuda()
-    # 然后进行填充
     padded_frames = pad_tensor(processed_frames, window_size)
     results = []
     
     for window in sliding_window(padded_frames, window_size, step_size):
-        window_result = inference(model, window, [""])[0]  # 只取第一个结果
+        window_result = inference(model, window, [""])[0]  # Only take the first result
         results.append(window_result)
     
     return np.array(results)
@@ -39,21 +37,20 @@ def process_group(group, model, processor):
 
             if 'action' in group:
                 del group['action']
-            group.create_dataset('action', data=results, compression="gzip", chunks=True)
+            group.create_dataset('action', data=results[:len(frames)], compression="gzip", chunks=True)
             
-            print(f"处理完成: {group.name}")
+            print(f"Finish: {group.name}")
 
 def process_hdf5(file_path, model, processor):
     with h5py.File(file_path, 'r+') as f:
         process_group(f, model, processor)
 
-    print(f"所有处理完成，结果已写入 {file_path}")
+    print(f"Write to {file_path}")
 
     
-# 使用示例
 if __name__ == "__main__":
-    file_path = "/home/ao/workspace/fs/diffusers/trajectories_chunk_2.hdf5"
+    file_path = "/path/to/hdf5"
     processer = processer_canny()
-    model = get_model().cuda()  # 这里应该是你的模型实例
-    load_pytorch_model(model, "/home/ao/workspace/BC/outputs/inverse_results/TorchTrainer_e3847_00002_2_lr=0.0000_2024-10-16_03-42-27/checkpoint_000011/model.pt")
+    model = get_model().cuda()
+    load_pytorch_model(model, "/path/to/pytorch_model.bin")
     process_hdf5(file_path, model, processer)

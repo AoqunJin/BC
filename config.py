@@ -15,7 +15,7 @@ def get_BCConfig():
         "ds_config":                   get_DSZeRO2Config(),
         "tune":                        True,
         "tune_config":                 {"metric": "val_acc", "mode": "max"},
-        "data_path":                   "/home/ao/workspace/fs/diffusers/trajectories_chunk_2.hdf5",
+        "data_path":                   "/path/to/hdf5",
         "zero_tasks":                  None,
         # "zero_tasks":                  [
         #     '_button-press-topdown-wall-v2-goal-observable_', 
@@ -32,12 +32,25 @@ def get_BCConfig():
         #     '_plate-slide-side-v2-goal-observable_', 
         #     '_window-close-v2-goal-observable_'
         # ],
-        # "data_path":                   "/home/ao/workspace/fs/real.hdf5",
-        # "zero_tasks":                  ['Red_', '_Blue', '_Frying panLeft stove_', '_BowlLeftPlate_'],
+        # "zero_tasks":                  [
+        #     '_button-press-topdown-v2-goal-observable_',
+        #     '_button-press-wall-v2-goal-observable_', 
+        #     '_reach-v2-goal-observable_', 
+        #     '_push-wall-v2-goal-observable_',
+        #     '_pick-place-v2-goal-observable_',
+        #     '_assembly-v2-goal-observable_', 
+        #     '_door-close-v2-goal-observable_', 
+        #     '_door-lock-v2-goal-observable_', 
+        #     '_drawer-open-v2-goal-observable_',
+        #     '_faucet-open-v2-goal-observable_', 
+        #     '_plate-slide-v2-goal-observable_', 
+        #     '_plate-slide-back-side-v2-goal-observable_',
+        #     '_window-open-v2-goal-observable_', 
+        # ],
         "seq_len":                     12,
         "frame_skip":                  0,
         "use_language":                False,
-        "storage_path":                "/home/ao/workspace/BC/outputs",
+        "storage_path":                "/path/to/output",
         "processer":                   "basic",
         "checkpoint":                  None,
         "restore":                     False,
@@ -49,7 +62,7 @@ def get_LCBCConfig():
     config.update({
         "method":                      "lcbc",
     })
-    tune_config(config)
+    # tune_config(config)
     return config
 
 
@@ -59,7 +72,7 @@ def get_RT1Config():
         "method":                      "rt1",
         "batch_size":                  2,
     })
-    tune_config(config)
+    # tune_config(config)
     return config
 
 
@@ -68,7 +81,7 @@ def get_DiffusionConfig():
     config.update({
         "method":                      "diffusion",    
     })
-    tune_config(config)
+    # tune_config(config)
     return config
 
 
@@ -78,18 +91,19 @@ def get_InverseConfig():
         "method":                      "inverse",
         "processer":                   "canny",
         "vision_model":                "vit",  # [vit | resnet]
-        "batch_size":                  4,
+        "batch_size":                  8,
         "seq_len":                     12,
         "num_workers":                 32,
+        "lr":                          2e-5,
     })
-    tune_config(config)
+    # tune_config(config)
     return config
 
 
 def get_DSConfig():
     deepspeed_config = {
-        "fp16": {"enabled": True},
-        "bf16": {"enabled": False},  # Turn this on if using AMPERE GPUs.
+        "fp16": {"enabled": False},
+        "bf16": {"enabled": True},  # Turn this on if using AMPERE GPUs.
         "gradient_accumulation_steps": 1,
         "train_micro_batch_size_per_gpu": 16,        
         "gradient_clipping": 1.0,
@@ -100,8 +114,8 @@ def get_DSConfig():
 
 def get_DSZeRO2Config():
     deepspeed_config = {
-        "fp16": {"enabled": True},
-        "bf16": {"enabled": False},  # Turn this on if using AMPERE GPUs.
+        "fp16": {"enabled": False},
+        "bf16": {"enabled": True},  # Turn this on if using AMPERE GPUs.
         "zero_optimization": {
             "stage": 2,
             "allgather_partitions": True,

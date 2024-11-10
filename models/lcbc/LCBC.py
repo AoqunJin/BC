@@ -19,8 +19,8 @@ class LCBC(nn.Module):
     def __init__(self, num_actions = 4, action_bins = 3, **kwargs):
         super().__init__()
         self.vision_model = CLIPVisionModel.from_pretrained("openai/clip-vit-base-patch32")
-        self.text_model = T5EncoderModel.from_pretrained("google/t5-v1_1-small")
-        self.tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-small")
+        self.text_model = T5EncoderModel.from_pretrained("google/t5-v1_1-base")
+        self.tokenizer = AutoTokenizer.from_pretrained("google/t5-v1_1-base")
 
         self.fusion_layer = nn.TransformerEncoderLayer(d_model=768, nhead=8, batch_first=True)
         self.fusion_encoder = nn.TransformerEncoder(self.fusion_layer, num_layers=6)
@@ -43,8 +43,7 @@ class LCBC(nn.Module):
             text_outputs = self.text_model(**text_inputs)
             text_features = text_outputs.last_hidden_state
             
-            # 在最后一维的末尾填充256个单位，前面0个，填充值为0
-            text_features = F.pad(text_features, pad=(0, 256), mode='constant', value=0)
+            # text_features = F.pad(text_features, pad=(0, 256), mode='constant', value=0)
 
             # Combine features
             combined_features = torch.cat([vision_features, text_features], dim=1)
@@ -57,12 +56,12 @@ class LCBC(nn.Module):
         logits = self.to_logits(fused_output)
         return logits
 
-    def load_state_dict(self, state_dict):
-        self.fusion_encoder.load_state_dict(state_dict["fusion_encoder"])
-        self.to_logits.load_state_dict(state_dict["to_logits"])
+    # def load_state_dict(self, state_dict):
+    #     self.fusion_encoder.load_state_dict(state_dict["fusion_encoder"])
+    #     self.to_logits.load_state_dict(state_dict["to_logits"])
         
-    def state_dict(self):
-        return {
-            "fusion_encoder": self.fusion_encoder.state_dict(),
-            "to_logits": self.to_logits.state_dict()
-        }
+    # def state_dict(self):
+    #     return {
+    #         "fusion_encoder": self.fusion_encoder.state_dict(),
+    #         "to_logits": self.to_logits.state_dict()
+    #     }

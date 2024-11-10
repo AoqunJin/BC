@@ -34,11 +34,10 @@ def inference(model, frame, instruction, **kwargs):
     model.eval()
     with torch.no_grad():
         eval_logits = model(instruction, frame.unsqueeze(0))
-    return (torch.argmax(eval_logits, dim=-1)).squeeze().cpu().detach().numpy()
+    return torch.argmax(eval_logits, dim=-1).squeeze().cpu().detach().numpy()
 
 
 if __name__ == "__main__":
-    # 使用示例
     model = get_model(vision_model="vit")
     # print("number of parameters: {:e}".format(
     #     sum(p.numel() for p in model.parameters()))
@@ -52,8 +51,7 @@ if __name__ == "__main__":
     )
     print(loss)
     
-    # 测试
-    image = torch.randn(20, 3, 224, 224)  # 假设这是您的输入图像
+    image = torch.randn(20, 3, 224, 224)
     instruction = ["Your instructions here"]
     result = inference(model, image, instruction).squeeze()
     print(result.shape)

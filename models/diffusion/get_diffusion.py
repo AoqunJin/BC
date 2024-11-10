@@ -94,13 +94,12 @@ def video_inference_decorator(max_frames=2):
             if clear_buffer:
                 frame_buffer.clear()
                 action_buffer.clear()
-            # 添加新帧到缓冲区
             if len(frame_buffer) == 0:
                 frame_buffer.append(image)
             frame_buffer.append(image)
-            # 创建视频张量
+
             video = torch.stack(list(frame_buffer), dim=0)  # [L, 3, 224, 224]
-            video = video.unsqueeze(0)  # 添加批次维度 [1, L, 3, 224, 224]
+            video = video.unsqueeze(0)  # [1, L, 3, 224, 224]
             
             if len(action_buffer) == 0:
                 action = func(model, video, instructions, *args, **kwargs)
@@ -125,7 +124,6 @@ def inference(model, frame, instructions, **kwargs):
 
 
 if __name__ == "__main__":
-    # 使用示例
     model = get_model()
 
     print("number of parameters: {:e}".format(
@@ -140,8 +138,7 @@ if __name__ == "__main__":
     )
     print(loss)
     
-    # 测试
-    image = torch.randn(3, 224, 224)  # 假设这是您的输入图像
+    image = torch.randn(3, 224, 224)
     instructions = ["Your instructions here Your instructions here"]
     result = inference(model, image, instructions).squeeze()
     print(result.shape)
